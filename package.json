@@ -1,7 +1,7 @@
 {
-  "name": "hyperdrive",
-  "version": "9.1.1",
-  "description": "Hyperdrive is a secure, real time distributed file system",
+  "name": "dwebfs",
+  "version": "1.0.0",
+  "description": "Official JavaScript Implementation of dWebFS.",
   "main": "index.js",
   "dependencies": {
     "append-tree": "^2.0.5",
