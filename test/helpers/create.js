@@ -1,6 +1,6 @@
 var ram = require('random-access-memory')
-var dwebfs = require('../../')
+var hyperdrive = require('../../')
 
 module.exports = function (key, opts) {
-  return dwebfs(ram, key, opts)
+  return hyperdrive(ram, key, opts)
 }

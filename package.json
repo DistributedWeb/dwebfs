@@ -1,13 +1,13 @@
 {
-  "name": "dwebfs",
-  "version": "1.1.0",
-  "description": "Official JavaScript implementation of dWebFS",
+  "name": "hyperdrive",
+  "version": "9.16.0",
+  "description": "Hyperdrive is a secure, real time distributed file system",
   "main": "index.js",
   "dependencies": {
     "append-tree": "^2.3.5",
     "duplexify": "^3.5.0",
     "from2": "^2.3.0",
-    "ddatabase": "^1.2.0",
+    "hypercore": "^7.5.0",
     "inherits": "^2.0.3",
     "mutexify": "^1.1.0",
     "protocol-buffers-encodings": "^1.1.0",
@@ -32,12 +32,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/distributedweb/dwebfs.git"
+    "url": "https://github.com/mafintosh/hyperdrive.git"
   },
   "author": "Mathias Buus (@mafintosh)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/distributedweb/dwebfs/issues"
+    "url": "https://github.com/mafintosh/hyperdrive/issues"
   },
-  "homepage": "https://github.com/distributedweb/dwebfs"
+  "homepage": "https://github.com/mafintosh/hyperdrive"
 }

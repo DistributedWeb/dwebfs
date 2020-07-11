@@ -1,4 +1,4 @@
-var ddatabase = require('ddatabase')
+var hypercore = require('hypercore')
 var mutexify = require('mutexify')
 var raf = require('random-access-file')
 var thunky = require('thunky')
@@ -12,7 +12,7 @@ var from = require('from2')
 var each = require('stream-each')
 var uint64be = require('uint64be')
 var unixify = require('unixify')
-var path = require('path')
+var path = require('path').posix
 var messages = require('./lib/messages')
 var stat = require('./lib/stat')
 var cursor = require('./lib/cursor')
@@ -20,10 +20,10 @@ var cursor = require('./lib/cursor')
 var DEFAULT_FMODE = (4 | 2 | 0) << 6 | ((4 | 0 | 0) << 3) | (4 | 0 | 0) // rw-r--r--
 var DEFAULT_DMODE = (4 | 2 | 1) << 6 | ((4 | 0 | 1) << 3) | (4 | 0 | 1) // rwxr-xr-x
 
-module.exports = DWebFs
+module.exports = Hyperdrive
 
-function DWebFs (storage, key, opts) {
-  if (!(this instanceof DWebFs)) return new DWebFs(storage, key, opts)
+function Hyperdrive (storage, key, opts) {
+  if (!(this instanceof Hyperdrive)) return new Hyperdrive(storage, key, opts)
   events.EventEmitter.call(this)
 
   if (isObject(key)) {
@@ -40,11 +40,12 @@ function DWebFs (storage, key, opts) {
 
   this._storages = defaultStorage(this, storage, opts)
 
-  this.metadata = opts.metadata || ddatabase(this._storages.metadata, key, {
+  this.metadata = opts.metadata || hypercore(this._storages.metadata, key, {
     secretKey: opts.secretKey,
     sparse: opts.sparseMetadata,
     createIfMissing: opts.createIfMissing,
-    storageCacheSize: opts.metadataStorageCacheSize
+    storageCacheSize: opts.metadataStorageCacheSize,
+    extensions: opts.extensions
   })
   this.content = opts.content || null
   this.maxRequests = opts.maxRequests || 16
@@ -76,7 +77,9 @@ function DWebFs (storage, key, opts) {
   var self = this
 
   this.metadata.on('append', update)
+  this.metadata.on('extension', extension)
   this.metadata.on('error', onerror)
+  this.metadata.once('close', onclose)
   this.ready = thunky(open)
   this.ready(onready)
 
@@ -96,8 +99,16 @@ function DWebFs (storage, key, opts) {
     if (err) self.emit('error', err)
   }
 
+  function onclose () {
+    self.emit('close')
+  }
+
   function update () {
     self.emit('update')
+  }
+
+  function extension (name, message, peer) {
+    self.emit('extension', name, message, peer)
   }
 
   function open (cb) {
@@ -105,29 +116,29 @@ function DWebFs (storage, key, opts) {
   }
 }
 
-inherits(DWebFs, events.EventEmitter)
+inherits(Hyperdrive, events.EventEmitter)
 
-Object.defineProperty(DWebFs.prototype, 'version', {
+Object.defineProperty(Hyperdrive.prototype, 'version', {
   enumerable: true,
   get: function () {
     return this._checkout ? this.tree.version : (this.metadata.length ? this.metadata.length - 1 : 0)
   }
 })
 
-Object.defineProperty(DWebFs.prototype, 'writable', {
+Object.defineProperty(Hyperdrive.prototype, 'writable', {
   enumerable: true,
   get: function () {
     return this.metadata.writable
   }
 })
 
-DWebFs.prototype._oncontent = function () {
+Hyperdrive.prototype._oncontent = function () {
   if (!this.content || this._emittedContent) return
   this._emittedContent = true
   this.emit('content')
 }
 
-DWebFs.prototype._trackLatest = function (cb) {
+Hyperdrive.prototype._trackLatest = function (cb) {
   var self = this
 
   this.ready(function (err) {
@@ -181,7 +192,7 @@ DWebFs.prototype._trackLatest = function (cb) {
   }
 }
 
-DWebFs.prototype._fetchVersion = function (prev, cb) {
+Hyperdrive.prototype._fetchVersion = function (prev, cb) {
   var self = this
   var version = self.version
   var updated = false
@@ -270,7 +281,7 @@ DWebFs.prototype._fetchVersion = function (prev, cb) {
   }
 }
 
-DWebFs.prototype._clearDangling = function (a, b, cb) {
+Hyperdrive.prototype._clearDangling = function (a, b, cb) {
   var current = this.tree.checkout(a, {cached: true})
   var latest = this.tree.checkout(b)
   var stream = current.diff(latest, {dels: true, puts: false})
@@ -295,7 +306,7 @@ DWebFs.prototype._clearDangling = function (a, b, cb) {
   }
 }
 
-DWebFs.prototype.replicate = function (opts) {
+Hyperdrive.prototype.replicate = function (opts) {
   if (!opts) opts = {}
 
   opts.expectedFeeds = 2
@@ -317,21 +328,21 @@ DWebFs.prototype.replicate = function (opts) {
   return stream
 }
 
-DWebFs.prototype.checkout = function (version, opts) {
+Hyperdrive.prototype.checkout = function (version, opts) {
   if (!opts) opts = {}
   opts._checkout = this._checkout || this
   opts.metadata = this.metadata
   opts.version = version
-  return DWebFs(null, null, opts)
+  return Hyperdrive(null, null, opts)
 }
 
-DWebFs.prototype.createDiffStream = function (version, opts) {
+Hyperdrive.prototype.createDiffStream = function (version, opts) {
   if (!version) version = 0
   if (typeof version === 'number') version = this.checkout(version)
   return this.tree.diff(version.tree, opts)
 }
 
-DWebFs.prototype.download = function (dir, cb) {
+Hyperdrive.prototype.download = function (dir, cb) {
   if (typeof dir === 'function') return this.download('/', dir)
 
   var downloadCount = 1
@@ -376,16 +387,16 @@ DWebFs.prototype.download = function (dir, cb) {
   }
 }
 
-DWebFs.prototype.history = function (opts) {
+Hyperdrive.prototype.history = function (opts) {
   return this.tree.history(opts)
 }
 
-DWebFs.prototype.createCursor = function (name, opts) {
+Hyperdrive.prototype.createCursor = function (name, opts) {
   return cursor(this, name, opts)
 }
 
 // open -> fd
-DWebFs.prototype.open = function (name, flags, mode, opts, cb) {
+Hyperdrive.prototype.open = function (name, flags, mode, opts, cb) {
   if (typeof mode === 'object' && mode) return this.open(name, flags, 0, mode, opts)
   if (typeof mode === 'function') return this.open(name, flags, 0, mode)
   if (typeof opts === 'function') return this.open(name, flags, mode, null, opts)
@@ -405,7 +416,7 @@ DWebFs.prototype.open = function (name, flags, mode, opts, cb) {
   })
 }
 
-DWebFs.prototype.read = function (fd, buf, offset, len, pos, cb) {
+Hyperdrive.prototype.read = function (fd, buf, offset, len, pos, cb) {
   var cursor = this._openFiles[fd - 20]
   if (!cursor) return cb(new Error('Bad file descriptor'))
 
@@ -428,7 +439,7 @@ DWebFs.prototype.read = function (fd, buf, offset, len, pos, cb) {
 }
 
 // TODO: move to ./lib
-DWebFs.prototype.createReadStream = function (name, opts) {
+Hyperdrive.prototype.createReadStream = function (name, opts) {
   if (!opts) opts = {}
 
   name = normalizePath(name)
@@ -528,7 +539,7 @@ DWebFs.prototype.createReadStream = function (name, opts) {
   }
 }
 
-DWebFs.prototype.readFile = function (name, opts, cb) {
+Hyperdrive.prototype.readFile = function (name, opts, cb) {
   if (typeof opts === 'function') return this.readFile(name, null, opts)
   if (typeof opts === 'string') opts = {encoding: opts}
   if (!opts) opts = {}
@@ -542,7 +553,7 @@ DWebFs.prototype.readFile = function (name, opts, cb) {
   })
 }
 
-DWebFs.prototype.createWriteStream = function (name, opts) {
+Hyperdrive.prototype.createWriteStream = function (name, opts) {
   if (!opts) opts = {}
 
   name = normalizePath(name)
@@ -618,7 +629,7 @@ DWebFs.prototype.createWriteStream = function (name, opts) {
   return proxy
 }
 
-DWebFs.prototype.writeFile = function (name, buf, opts, cb) {
+Hyperdrive.prototype.writeFile = function (name, buf, opts, cb) {
   if (typeof opts === 'function') return this.writeFile(name, buf, null, opts)
   if (typeof opts === 'string') opts = {encoding: opts}
   if (!opts) opts = {}
@@ -635,7 +646,7 @@ DWebFs.prototype.writeFile = function (name, buf, opts, cb) {
   stream.end()
 }
 
-DWebFs.prototype.mkdir = function (name, opts, cb) {
+Hyperdrive.prototype.mkdir = function (name, opts, cb) {
   if (typeof opts === 'function') return this.mkdir(name, null, opts)
   if (typeof opts === 'number') opts = {mode: opts}
   if (!opts) opts = {}
@@ -667,7 +678,7 @@ DWebFs.prototype.mkdir = function (name, opts, cb) {
   })
 }
 
-DWebFs.prototype._statDirectory = function (name, opts, cb) {
+Hyperdrive.prototype._statDirectory = function (name, opts, cb) {
   this.tree.list(name, opts, function (err, list) {
     if (name !== '/' && (err || !list.length)) return cb(err || new Error(name + ' could not be found'))
     var st = stat()
@@ -676,7 +687,7 @@ DWebFs.prototype._statDirectory = function (name, opts, cb) {
   })
 }
 
-DWebFs.prototype.access = function (name, opts, cb) {
+Hyperdrive.prototype.access = function (name, opts, cb) {
   if (typeof opts === 'function') return this.access(name, null, opts)
   if (!opts) opts = {}
   name = normalizePath(name)
@@ -685,7 +696,7 @@ DWebFs.prototype.access = function (name, opts, cb) {
   })
 }
 
-DWebFs.prototype.exists = function (name, opts, cb) {
+Hyperdrive.prototype.exists = function (name, opts, cb) {
   if (typeof opts === 'function') return this.exists(name, null, opts)
   if (!opts) opts = {}
   this.access(name, opts, function (err) {
@@ -693,7 +704,7 @@ DWebFs.prototype.exists = function (name, opts, cb) {
   })
 }
 
-DWebFs.prototype.lstat = function (name, opts, cb) {
+Hyperdrive.prototype.lstat = function (name, opts, cb) {
   if (typeof opts === 'function') return this.lstat(name, null, opts)
   if (!opts) opts = {}
   var self = this
@@ -706,13 +717,13 @@ DWebFs.prototype.lstat = function (name, opts, cb) {
   })
 }
 
-DWebFs.prototype.stat = function (name, opts, cb) {
+Hyperdrive.prototype.stat = function (name, opts, cb) {
   if (typeof opts === 'function') return this.stat(name, null, opts)
   if (!opts) opts = {}
   this.lstat(name, opts, cb)
 }
 
-DWebFs.prototype.readdir = function (name, opts, cb) {
+Hyperdrive.prototype.readdir = function (name, opts, cb) {
   if (typeof opts === 'function') return this.readdir(name, null, opts)
 
   name = normalizePath(name)
@@ -724,19 +735,19 @@ DWebFs.prototype.readdir = function (name, opts, cb) {
   })
 }
 
-DWebFs.prototype._readdirRoot = function (opts, cb) {
+Hyperdrive.prototype._readdirRoot = function (opts, cb) {
   this.tree.list('/', opts, function (_, list) {
     if (list) return cb(null, sanitizeDirs(list))
     cb(null, [])
   })
 }
 
-DWebFs.prototype.unlink = function (name, cb) {
+Hyperdrive.prototype.unlink = function (name, cb) {
   name = normalizePath(name)
   this._del(name, cb || noop)
 }
 
-DWebFs.prototype.rmdir = function (name, cb) {
+Hyperdrive.prototype.rmdir = function (name, cb) {
   if (!cb) cb = noop
 
   name = normalizePath(name)
@@ -750,7 +761,7 @@ DWebFs.prototype.rmdir = function (name, cb) {
   })
 }
 
-DWebFs.prototype._del = function (name, cb) {
+Hyperdrive.prototype._del = function (name, cb) {
   var self = this
 
   this._ensureContent(function (err) {
@@ -775,14 +786,14 @@ DWebFs.prototype._del = function (name, cb) {
   })
 }
 
-DWebFs.prototype._closeFile = function (fd, cb) {
+Hyperdrive.prototype._closeFile = function (fd, cb) {
   var cursor = this._openFiles[fd - 20]
   if (!cursor) return cb(new Error('Bad file descriptor'))
   this._openFiles[fd - 20] = null
   cursor.close(cb)
 }
 
-DWebFs.prototype.close = function (fd, cb) {
+Hyperdrive.prototype.close = function (fd, cb) {
   if (typeof fd === 'number') return this._closeFile(fd, cb || noop)
   else cb = fd
   if (!cb) cb = noop
@@ -798,7 +809,7 @@ DWebFs.prototype.close = function (fd, cb) {
   })
 }
 
-DWebFs.prototype._ensureContent = function (cb) {
+Hyperdrive.prototype._ensureContent = function (cb) {
   var self = this
 
   this.ready(function (err) {
@@ -808,7 +819,7 @@ DWebFs.prototype._ensureContent = function (cb) {
   })
 }
 
-DWebFs.prototype._loadIndex = function (cb) {
+Hyperdrive.prototype._loadIndex = function (cb) {
   var self = this
 
   if (this._checkout) this._checkout._loadIndex(done)
@@ -820,7 +831,7 @@ DWebFs.prototype._loadIndex = function (cb) {
 
     var keyPair = self.metadata.writable && contentKeyPair(self.metadata.secretKey)
     var opts = contentOptions(self, keyPair && keyPair.secretKey)
-    self.content = self._checkout ? self._checkout.content : ddatabase(self._storages.content, index.content, opts)
+    self.content = self._checkout ? self._checkout.content : hypercore(self._storages.content, index.content, opts)
     self.content.on('error', function (err) {
       self.emit('error', err)
     })
@@ -832,7 +843,7 @@ DWebFs.prototype._loadIndex = function (cb) {
   }
 }
 
-DWebFs.prototype._open = function (cb) {
+Hyperdrive.prototype._open = function (cb) {
   var self = this
 
   this.tree.ready(function (err) {
@@ -862,7 +873,7 @@ DWebFs.prototype._open = function (cb) {
     if (!self.content) {
       var keyPair = contentKeyPair(self.metadata.secretKey)
       var opts = contentOptions(self, keyPair.secretKey)
-      self.content = ddatabase(self._storages.content, keyPair.publicKey, opts)
+      self.content = hypercore(self._storages.content, keyPair.publicKey, opts)
       self.content.on('error', function (err) {
         self.emit('error', err)
       })
@@ -870,9 +881,13 @@ DWebFs.prototype._open = function (cb) {
 
     self.content.ready(function () {
       if (self.metadata.has(0)) return cb(new Error('Index already written'))
-      self.metadata.append(messages.Index.encode({type: 'dwebfs', content: self.content.key}), cb)
+      self.metadata.append(messages.Index.encode({type: 'hyperdrive', content: self.content.key}), cb)
     })
   }
+}
+
+Hyperdrive.prototype.extension = function (name, message) {
+  this.metadata.extension(name, message)
 }
 
 function contentOptions (self, secretKey) {
@@ -954,7 +969,7 @@ function noDots (entry) {
 
 function contentKeyPair (secretKey) {
   var seed = new Buffer(sodium.crypto_sign_SEEDBYTES)
-  var context = new Buffer('patriots') // 8 byte context
+  var context = new Buffer('hyperdri') // 8 byte context
   var keyPair = {
     publicKey: new Buffer(sodium.crypto_sign_PUBLICKEYBYTES),
     secretKey: new Buffer(sodium.crypto_sign_SECRETKEYBYTES)

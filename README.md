@@ -1,20 +1,20 @@
-# DWebFs
+# Hyperdrive
 
-DWebFs is a secure, real time distributed file system
+Hyperdrive is a secure, real time distributed file system
 
 ``` js
-npm install dwebfs
+npm install hyperdrive
 ```
 
-[![Build Status](https://travis-ci.org/mafintosh/dwebfs.svg?branch=master)](https://travis-ci.org/mafintosh/dwebfs)
+[![Build Status](https://travis-ci.org/mafintosh/hyperdrive.svg?branch=master)](https://travis-ci.org/mafintosh/hyperdrive)
 
 ## Usage
 
-DWebFs aims to implement the same API as Node.js' core fs module.
+Hyperdrive aims to implement the same API as Node.js' core fs module.
 
 ``` js
-var dwebfs = require('dwebfs')
-var archive = dwebfs('./my-first-dwebfs') // content will be stored in this folder
+var hyperdrive = require('hyperdrive')
+var archive = hyperdrive('./my-first-hyperdrive') // content will be stored in this folder
 
 archive.writeFile('/hello.txt', 'world', function (err) {
   if (err) throw err
@@ -44,7 +44,7 @@ server.listen(10000)
 
 // ... on another
 
-var clonedArchive = dwebfs('./my-cloned-dwebfs', origKey)
+var clonedArchive = hyperdrive('./my-cloned-hyperdrive', origKey)
 var socket = net.connect(10000)
 
 socket.pipe(clonedArchive.replicate()).pipe(socket)
@@ -54,9 +54,9 @@ It also comes with build in versioning and real time replication. See more below
 
 ## API
 
-#### `var archive = dwebfs(storage, [key], [options])`
+#### `var archive = hyperdrive(storage, [key], [options])`
 
-Create a new dwebfs.
+Create a new hyperdrive.
 
 The `storage` parameter defines how the contents of the archive will be stored. It can be one of the following, depending on how much control you require over how the archive is stored.
 
@@ -66,9 +66,9 @@ The `storage` parameter defines how the contents of the archive will be stored. 
 
   - `name`: the name of the file to be stored
   - `opts`
-    - `key`: the [feed key](https://github.com/distributedweb/ddatabase#feedkey) of the underlying DDatabase instance
-    - `discoveryKey`: the [discovery key](https://github.com/distributedweb/ddatabase#feeddiscoverykey) of the underlying DDatabase instance
-  - `archive`: the current DWebFs instance
+    - `key`: the [feed key](https://github.com/mafintosh/hypercore#feedkey) of the underlying Hypercore instance
+    - `discoveryKey`: the [discovery key](https://github.com/mafintosh/hypercore#feeddiscoverykey) of the underlying Hypercore instance
+  - `archive`: the current Hyperdrive instance
 
   The functions need to return a a [`random-access-storage`](https://github.com/random-access-storage/) instance.
 
@@ -78,13 +78,14 @@ Options include:
 {
   sparse: true, // only download data on content feed when it is specifically requested
   sparseMetadata: true // only download data on metadata feed when requested
-  metadataStorageCacheSize: 65536 // how many entries to use in the metadata ddatabase's LRU cache
-  contentStorageCacheSize: 65536 // how many entries to use in the content ddatabase's LRU cache
+  extensions: [] // Optionally specify which extensions to use when replicating
+  metadataStorageCacheSize: 65536 // how many entries to use in the metadata hypercore's LRU cache
+  contentStorageCacheSize: 65536 // how many entries to use in the content hypercore's LRU cache
   treeCacheSize: 65536 // how many entries to use in the append-tree's LRU cache
 }
 ```
 
-Note that a cloned dwebfs archive can be "sparse". Usually (by setting `sparse: true`) this means that the content is not downloaded until you ask for it, but the entire metadata feed is still downloaded. If you want a _very_ sparse archive, where even the metadata feed is not downloaded until you request it, then you should _also_ set `sparseMetadata: true`.
+Note that a cloned hyperdrive archive can be "sparse". Usually (by setting `sparse: true`) this means that the content is not downloaded until you ask for it, but the entire metadata feed is still downloaded. If you want a _very_ sparse archive, where even the metadata feed is not downloaded until you request it, then you should _also_ set `sparseMetadata: true`.
 
 #### `var stream = archive.replicate([options])`
 
@@ -118,9 +119,22 @@ A boolean indicating whether the archive is writable.
 
 Emitted when the archive is fully ready and all properties has been populated.
 
+#### `archive.on('update')'
+
+Emitted when the archive has got a new change.
+
 #### `archive.on('error', err)`
 
 Emitted when a critical error during load happened.
+
+#### `archive.on('close')`
+
+Emitted when the archive has been closed
+
+#### `archive.on('extension', name, message, peer)`
+
+Emitted when a peer sends you an extension message with `archive.extension()`.
+You can respond with `peer.extension(name, message)`.
 
 #### `var oldDrive = archive.checkout(version, [opts])`
 
@@ -128,8 +142,8 @@ Checkout a readonly copy of the archive at an old version. Options are used to c
 
 ```js
 {
-  metadataStorageCacheSize: 65536 // how many entries to use in the metadata ddatabase's LRU cache
-  contentStorageCacheSize: 65536 // how many entries to use in the content ddatabase's LRU cache
+  metadataStorageCacheSize: 65536 // how many entries to use in the metadata hypercore's LRU cache
+  contentStorageCacheSize: 65536 // how many entries to use in the content hypercore's LRU cache
   treeCacheSize: 65536 // how many entries to use in the append-tree's LRU cache
 }
 ```
@@ -148,6 +162,10 @@ archive.checkout(version).download()
 #### `var stream = archive.history([options])`
 
 Get a stream of all changes and their versions from this archive.
+
+### `archive.extension(name, message)`
+
+Send an extension message to connected peers. [Read more in the hypercore docs](https://github.com/mafintosh/hypercore#feedextensionname-message).
 
 #### `var stream = archive.createReadStream(name, [options])`
 
