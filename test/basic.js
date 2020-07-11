@@ -1,15 +1,45 @@
 var tape = require('tape')
-var sodium = require('sodium-universal')
+const hypercoreCrypto = require('hypercore-crypto')
+const Corestore = require('corestore')
+const ram = require('random-access-memory')
 var create = require('./helpers/create')
 
-tape('write and read', function (t) {
-  var archive = create()
+tape('close event', function (t) {
+  t.plan(1)
 
-  archive.writeFile('/hello.txt', 'world', function (err) {
+  var drive = create()
+
+  drive.on('close', function () {
+    t.pass('close event')
+    t.end()
+  })
+
+  drive.ready(function () {
+    drive.close()
+  })
+})
+
+tape('write and read', function (t) {
+  var drive = create()
+
+  drive.writeFile('/hello.txt', 'world', function (err) {
     t.error(err, 'no error')
-    archive.readFile('/hello.txt', function (err, buf) {
+    drive.readFile('/hello.txt', function (err, buf) {
       t.error(err, 'no error')
-      t.same(buf, new Buffer('world'))
+      t.same(buf, Buffer.from('world'))
+      t.end()
+    })
+  })
+})
+
+tape('write and read, with encoding', function (t) {
+  var drive = create()
+
+  drive.writeFile('/hello.txt', 'world', { encoding: 'utf8' }, function (err) {
+    t.error(err, 'no error')
+    drive.readFile('/hello.txt', { encoding: 'utf8' }, function (err, str) {
+      t.error(err, 'no error')
+      t.same(str, 'world')
       t.end()
     })
   })
@@ -18,54 +48,39 @@ tape('write and read', function (t) {
 tape('write and read (2 parallel)', function (t) {
   t.plan(6)
 
-  var archive = create()
+  var drive = create()
 
-  archive.writeFile('/hello.txt', 'world', function (err) {
+  drive.writeFile('/hello.txt', 'world', function (err) {
     t.error(err, 'no error')
-    archive.readFile('/hello.txt', function (err, buf) {
+    drive.readFile('/hello.txt', function (err, buf) {
       t.error(err, 'no error')
-      t.same(buf, new Buffer('world'))
+      t.same(buf, Buffer.from('world'))
     })
   })
 
-  archive.writeFile('/world.txt', 'hello', function (err) {
+  drive.writeFile('/world.txt', 'hello', function (err) {
     t.error(err, 'no error')
-    archive.readFile('/world.txt', function (err, buf) {
+    drive.readFile('/world.txt', function (err, buf) {
       t.error(err, 'no error')
-      t.same(buf, new Buffer('hello'))
+      t.same(buf, Buffer.from('hello'))
     })
   })
 })
 
 tape('write and read (sparse)', function (t) {
-  t.plan(2)
+  var drive = create()
+  drive.on('ready', function () {
+    var clone = create(drive.key)
 
-  var archive = create()
-  archive.on('ready', function () {
-    var clone = create(archive.key, {sparse: true})
+    var s1 = clone.replicate(true, { live: true })
+    var s2 = drive.replicate(false, { live: true })
+    s1.pipe(s2).pipe(s1)
 
-    archive.writeFile('/hello.txt', 'world', function (err) {
+    drive.writeFile('/hello.txt', 'world', function (err) {
       t.error(err, 'no error')
-      var stream = clone.replicate()
-      stream.pipe(archive.replicate()).pipe(stream)
-
       var readStream = clone.createReadStream('/hello.txt')
       readStream.on('data', function (data) {
         t.same(data.toString(), 'world')
-      })
-    })
-  })
-})
-
-tape('write and unlink', function (t) {
-  var archive = create()
-
-  archive.writeFile('/hello.txt', 'world', function (err) {
-    t.error(err, 'no error')
-    archive.unlink('/hello.txt', function (err) {
-      t.error(err, 'no error')
-      archive.readFile('/hello.txt', function (err) {
-        t.ok(err, 'had error')
         t.end()
       })
     })
@@ -73,11 +88,11 @@ tape('write and unlink', function (t) {
 })
 
 tape('root is always there', function (t) {
-  var archive = create()
+  var drive = create()
 
-  archive.access('/', function (err) {
+  drive.access('/', function (err) {
     t.error(err, 'no error')
-    archive.readdir('/', function (err, list) {
+    drive.readdir('/', function (err, list) {
       t.error(err, 'no error')
       t.same(list, [])
       t.end()
@@ -85,132 +100,219 @@ tape('root is always there', function (t) {
   })
 })
 
-tape('owner is writable', function (t) {
-  var archive = create()
-
-  archive.on('ready', function () {
-    t.ok(archive.writable)
-    t.ok(archive.metadata.writable)
-    t.ok(archive.content.writable)
-    t.end()
-  })
-})
-
 tape('provide keypair', function (t) {
-  var publicKey = new Buffer(sodium.crypto_sign_PUBLICKEYBYTES)
-  var secretKey = new Buffer(sodium.crypto_sign_SECRETKEYBYTES)
+  const keyPair = hypercoreCrypto.keyPair()
+  var drive = create(keyPair.publicKey, { keyPair })
 
-  sodium.crypto_sign_keypair(publicKey, secretKey)
+  drive.on('ready', function () {
+    t.ok(drive.writable)
+    t.ok(drive.metadata.writable)
+    t.ok(keyPair.publicKey.equals(drive.key))
 
-  var archive = create(publicKey, {secretKey: secretKey})
-
-  archive.on('ready', function () {
-    t.ok(archive.writable)
-    t.ok(archive.metadata.writable)
-    t.ok(archive.content.writable)
-    t.ok(publicKey.equals(archive.key))
-
-    archive.writeFile('/hello.txt', 'world', function (err) {
+    drive.writeFile('/hello.txt', 'world', function (err) {
       t.error(err, 'no error')
-      archive.readFile('/hello.txt', function (err, buf) {
+      drive.readFile('/hello.txt', function (err, buf) {
         t.error(err, 'no error')
-        t.same(buf, new Buffer('world'))
+        t.same(buf, Buffer.from('world'))
         t.end()
       })
     })
   })
 })
 
-tape('download a version', function (t) {
-  var src = create()
-  src.on('ready', function () {
-    t.ok(src.writable)
-    t.ok(src.metadata.writable)
-    t.ok(src.content.writable)
-    src.writeFile('/first.txt', 'number 1', function (err) {
-      t.error(err, 'no error')
-      src.writeFile('/second.txt', 'number 2', function (err) {
-        t.error(err, 'no error')
-        src.writeFile('/third.txt', 'number 3', function (err) {
-          t.error(err, 'no error')
-          t.same(src.version, 3)
-          testDownloadVersion()
-        })
-      })
-    })
-  })
+tape.skip('can reopen when providing a keypair', function (t) {
+  const keyPair = hypercoreCrypto.keyPair()
+  const store = new Corestore(ram)
+  var drive = create(keyPair.publicKey, { keyPair, corestore: store })
 
-  function testDownloadVersion () {
-    var clone = create(src.key, { sparse: true })
-    clone.on('content', function () {
-      t.same(clone.version, 3)
-      clone.checkout(2).download(function (err) {
-        t.error(err)
-        clone.readFile('/second.txt', { cached: true }, function (err, content) {
-          t.error(err, 'block not downloaded')
-          t.same(content && content.toString(), 'number 2', 'content does not match')
-          clone.readFile('/third.txt', { cached: true }, function (err, content) {
-            t.same(err && err.message, 'Block not downloaded')
+  drive.on('ready', function () {
+    t.ok(drive.writable)
+    t.ok(drive.metadata.writable)
+    t.ok(keyPair.publicKey.equals(drive.key))
+
+    drive.writeFile('/hello.txt', 'world', function (err) {
+      t.error(err, 'no error')
+      console.log('CORE LENGTH BEFORE CLOSE:', drive.metadata.length)
+      drive.close(err => {
+        t.error(err, 'no error')
+        drive = create(keyPair.publicKey, { keyPair, corestore: store })
+
+        drive.on('ready', function () {
+          console.log('CORE LENGTH:', drive.metadata.length)
+          t.ok(drive.writable)
+          t.ok(drive.metadata.writable)
+          t.ok(keyPair.publicKey.equals(drive.key))
+
+          drive.readFile('/hello.txt', function (err, buf) {
+            t.error(err, 'no error')
+            t.same(buf, Buffer.from('world'))
             t.end()
           })
         })
       })
     })
-    var stream = clone.replicate()
-    stream.pipe(src.replicate()).pipe(stream)
-  }
+  })
 })
 
 tape('write and read, no cache', function (t) {
-  var archive = create({
+  var drive = create({
     metadataStorageCacheSize: 0,
     contentStorageCacheSize: 0,
     treeCacheSize: 0
   })
 
-  archive.writeFile('/hello.txt', 'world', function (err) {
+  drive.writeFile('/hello.txt', 'world', function (err) {
     t.error(err, 'no error')
-    archive.readFile('/hello.txt', function (err, buf) {
+    drive.readFile('/hello.txt', function (err, buf) {
       t.error(err, 'no error')
-      t.same(buf, new Buffer('world'))
+      t.same(buf, Buffer.from('world'))
       t.end()
     })
   })
 })
 
-tape('closing a read-only, latest clone', function (t) {
-  // This is just a sample key of a dead dat
-  var clone = create('1d5e5a628d237787afcbfec7041a16f67ba6895e7aa31500013e94ddc638328d', {
-    latest: true
-  })
-  clone.on('error', function (err) {
-    t.fail(err)
-  })
-  clone.close(function (err) {
-    t.error(err)
+tape('can read a single directory', async function (t) {
+  const drive = create(null)
+
+  let files = ['a', 'b', 'c', 'd', 'e', 'f']
+  let fileSet = new Set(files)
+
+  for (let file of files) {
+    await insertFile(file, 'a small file')
+  }
+
+  drive.readdir('/', (err, files) => {
+    t.error(err, 'no error')
+    for (let file of files) {
+      t.true(fileSet.has(file), 'correct file was listed')
+      fileSet.delete(file)
+    }
+    t.same(fileSet.size, 0, 'all files were listed')
     t.end()
   })
+
+  function insertFile (name, content) {
+    return new Promise((resolve, reject) => {
+      drive.writeFile(name, content, err => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+  }
 })
 
-tape('no .. entries', function (t) {
-  var archive = create()
+tape.skip('can stream a large directory', async function (t) {
+  const drive = create(null)
 
-  archive.writeFile('../hello.txt', 'world', function (err) {
+  let files = new Array(1000).fill(0).map((_, idx) => '' + idx)
+  let fileSet = new Set(files)
+
+  for (let file of files) {
+    await insertFile(file, 'a small file')
+  }
+
+  let stream = drive.createDirectoryStream('/')
+  stream.on('data', ({ path, stat }) => {
+    if (!fileSet.has(path)) {
+      return t.fail('an incorrect file was streamed')
+    }
+    fileSet.delete(path)
+  })
+  stream.on('end', () => {
+    t.same(fileSet.size, 0, 'all files were streamed')
+    t.end()
+  })
+
+  function insertFile (name, content) {
+    return new Promise((resolve, reject) => {
+      drive.writeFile(name, content, err => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+  }
+})
+
+tape('can read sparse metadata', async function (t) {
+  const { read, write } = await getTestDrives()
+
+  let files = ['a', 'b/a/b', 'b/c', 'c/b', 'd/e/f/g/h', 'd/e/a', 'e/a', 'e/b', 'f', 'g']
+
+  for (let file of files) {
+    await insertFile(file, 'a small file')
+    await checkFile(file)
+  }
+
+  t.end()
+
+  function checkFile (file) {
+    return new Promise(resolve => {
+      read.stat(file, (err, st) => {
+        t.error(err, 'no error')
+        t.true(st)
+        return resolve()
+      })
+    })
+  }
+
+  function insertFile (name, content) {
+    return new Promise((resolve, reject) => {
+      write.writeFile(name, content, err => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+  }
+
+  function getTestDrives () {
+    return new Promise(resolve => {
+      let drive = create()
+      drive.on('ready', () => {
+        let clone = create(drive.key, { sparseMetadata: true, sparse: true })
+        let s1 = clone.replicate(true, { live: true })
+        s1.pipe(drive.replicate(false, { live: true })).pipe(s1)
+        return resolve({ read: clone, write: drive })
+      })
+    })
+  }
+})
+
+tape('unavailable drive becomes ready', function (t) {
+  var drive1 = create()
+  var drive2 = null
+
+  drive1.ready(err => {
     t.error(err, 'no error')
-    archive.readdir('/', function (err, list) {
+    drive2 = create(drive1.key)
+    drive2.ready(err => {
       t.error(err, 'no error')
-      t.same(list, [ 'hello.txt' ])
-      t.end()
+      drive2.readFile('blah', (err, contents) => {
+        t.true(err)
+        t.same(err.errno, 2)
+        t.end()
+      })
     })
   })
 })
 
-tape('closing emits event', function (t) {
-  var archive = create()
-
-  archive.on('close', function () {
-    t.end()
+tape('copy', function (t) {
+  var drive = create()
+  drive.ready(err => {
+    t.error(err, 'no error')
+    drive.writeFile('hello', 'world', err => {
+      t.error(err, 'no error')
+      drive.copy('hello', 'also_hello', err => {
+        t.error(err, 'no error')
+        drive.readFile('hello', { encoding: 'utf8' }, (err, contents) => {
+          t.error(err, 'no error')
+          t.same(contents, 'world')
+          drive.readFile('also_hello', { encoding: 'utf8' }, (err, contents) => {
+            t.error(err, 'no error')
+            t.same(contents, 'world')
+            t.end()
+          })
+        })
+      })
+    })
   })
-
-  archive.close()
 })

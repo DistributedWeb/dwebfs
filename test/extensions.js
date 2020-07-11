@@ -11,7 +11,7 @@ tape('send and receive extension messages', function (t) {
   })
 
   drive1.ready(function () {
-    t.plan(2)
+    t.plan(3)
 
     var drive2 = create(drive1.key, {
       extensions: EXTENSIONS
@@ -22,11 +22,12 @@ tape('send and receive extension messages', function (t) {
       const replicate2 = drive2.replicate()
 
       drive2.on('extension', function (type, message) {
-        t.equal(type, EXAMPLE_TYPE)
-        t.equal(message.toString('hex'), EXAMPLE_MESSAGE.toString('hex'))
+        t.equal(type, EXAMPLE_TYPE, 'got expected type')
+        t.equal(message.toString('hex'), EXAMPLE_MESSAGE.toString('hex'), 'got expected message')
       })
 
-      drive1.metadata.on('peer-add', function () {
+      drive1.on('peer-add', function () {
+        t.pass('got peer add event')
         drive1.extension(EXAMPLE_TYPE, EXAMPLE_MESSAGE)
       })
 
