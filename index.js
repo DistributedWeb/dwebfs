@@ -1,4 +1,4 @@
-var hypercore = require('hypercore')
+var ddatabase = require('ddatabase')
 var mutexify = require('mutexify')
 var raf = require('random-access-file')
 var thunky = require('thunky')
@@ -40,7 +40,7 @@ function Hyperdrive (storage, key, opts) {
 
   this._storages = defaultStorage(this, storage, opts)
 
-  this.metadata = opts.metadata || hypercore(this._storages.metadata, key, {
+  this.metadata = opts.metadata || ddatabase(this._storages.metadata, key, {
     secretKey: opts.secretKey,
     sparse: opts.sparseMetadata,
     createIfMissing: opts.createIfMissing,
@@ -831,7 +831,7 @@ Hyperdrive.prototype._loadIndex = function (cb) {
 
     var keyPair = self.metadata.writable && contentKeyPair(self.metadata.secretKey)
     var opts = contentOptions(self, keyPair && keyPair.secretKey)
-    self.content = self._checkout ? self._checkout.content : hypercore(self._storages.content, index.content, opts)
+    self.content = self._checkout ? self._checkout.content : ddatabase(self._storages.content, index.content, opts)
     self.content.on('error', function (err) {
       self.emit('error', err)
     })
@@ -873,7 +873,7 @@ Hyperdrive.prototype._open = function (cb) {
     if (!self.content) {
       var keyPair = contentKeyPair(self.metadata.secretKey)
       var opts = contentOptions(self, keyPair.secretKey)
-      self.content = hypercore(self._storages.content, keyPair.publicKey, opts)
+      self.content = ddatabase(self._storages.content, keyPair.publicKey, opts)
       self.content.on('error', function (err) {
         self.emit('error', err)
       })
@@ -881,7 +881,7 @@ Hyperdrive.prototype._open = function (cb) {
 
     self.content.ready(function () {
       if (self.metadata.has(0)) return cb(new Error('Index already written'))
-      self.metadata.append(messages.Index.encode({type: 'hyperdrive', content: self.content.key}), cb)
+      self.metadata.append(messages.Index.encode({type: 'dwebfs', content: self.content.key}), cb)
     })
   }
 }

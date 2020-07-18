@@ -32,12 +32,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mafintosh/hyperdrive.git"
+    "url": "https://github.com/distributedweb/dwebfs.git"
   },
-  "author": "Mathias Buus (@mafintosh)",
+  "author": "Mathias Buus (@distributedweb)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/mafintosh/hyperdrive/issues"
+    "url": "https://github.com/distributedweb/dwebfs/issues"
   },
-  "homepage": "https://github.com/mafintosh/hyperdrive"
+  "homepage": "https://github.com/distributedweb/dwebfs"
 }
