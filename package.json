@@ -8,18 +8,18 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mafintosh/hyperdrive.git"
+    "url": "git+https://github.com/distributedweb/dwebfs.git"
   },
   "keywords": [
-    "hyperdrive",
-    "hypertrie"
+    "dwebfs",
+    "dwtrie"
   ],
-  "author": "Mathias Buus (@mafintosh)",
+  "author": "Mathias Buus (@distributedweb)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/mafintosh/hyperdrive/issues"
+    "url": "https://github.com/distributedweb/dwebfs/issues"
   },
-  "homepage": "https://github.com/mafintosh/hyperdrive#readme",
+  "homepage": "https://github.com/distributedweb/dwebfs#readme",
   "dependencies": {
     "byte-stream": "^2.1.0",
     "dwebx": "^1.0.0",

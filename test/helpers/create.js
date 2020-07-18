@@ -1,10 +1,10 @@
 var ram = require('random-access-memory')
-var hyperdrive = require('../../')
+var dwebfs = require('../../')
 
 module.exports = function (key, opts) {
   if (key && !(key instanceof Buffer)) {
     opts = key
     key = null
   }
-  return hyperdrive((opts && opts.corestore) || ram, key, opts)
+  return dwebfs((opts && opts.dwebx) || ram, key, opts)
 }
