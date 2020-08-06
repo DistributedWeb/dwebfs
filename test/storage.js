@@ -1,14 +1,14 @@
-const tape = require('tape')
-const tmp = require('temporary-directory')
-const create = require('./helpers/create')
-const dwebfs = require('..')
+var tape = require('tape')
+var tmp = require('temporary-directory')
+var create = require('./helpers/create')
+var hyperdrive = require('..')
 
 tape('ram storage', function (t) {
-  var drive = create()
+  var archive = create()
 
-  drive.ready(function () {
-    t.ok(drive.metadata.writable, 'drive metadata is writable')
-    t.ok(drive.contentWritable, 'drive content is writable')
+  archive.ready(function () {
+    t.ok(archive.metadata.writable, 'archive metadata is writable')
+    t.ok(archive.content.writable, 'archive content is writable')
     t.end()
   })
 })
@@ -16,20 +16,19 @@ tape('ram storage', function (t) {
 tape('dir storage with resume', function (t) {
   tmp(function (err, dir, cleanup) {
     t.ifError(err)
-    var drive = dwebfs(dir)
-    drive.ready(function () {
-      t.ok(drive.metadata.writable, 'drive metadata is writable')
-      t.ok(drive.contentWritable, 'drive content is writable')
-      t.same(drive.version, 1, 'drive has version 1')
-      drive.close(function (err) {
+    var archive = hyperdrive(dir)
+    archive.ready(function () {
+      t.ok(archive.metadata.writable, 'archive metadata is writable')
+      t.ok(archive.content.writable, 'archive content is writable')
+      t.same(archive.version, 0, 'archive has version 0')
+      archive.close(function (err) {
         t.ifError(err)
 
-        var drive2 = dwebfs(dir)
-        drive2.ready(function (err) {
-          t.error(err, 'no error')
-          t.ok(drive2.metadata.writable, 'drive2 metadata is writable')
-          t.ok(drive2.contentWritable, 'drive2 content is writable')
-          t.same(drive2.version, 1, 'drive has version 1')
+        var archive2 = hyperdrive(dir)
+        archive2.ready(function () {
+          t.ok(archive2.metadata.writable, 'archive2 metadata is writable')
+          t.ok(archive2.content.writable, 'archive2 content is writable')
+          t.same(archive2.version, 0, 'archive has version 0')
 
           cleanup(function (err) {
             t.ifError(err)
@@ -41,16 +40,16 @@ tape('dir storage with resume', function (t) {
   })
 })
 
-tape('dir storage for non-writable drive', function (t) {
+tape('dir storage for non-writable archive', function (t) {
   var src = create()
   src.ready(function () {
     tmp(function (err, dir, cleanup) {
       t.ifError(err)
 
-      var clone = dwebfs(dir, src.key)
-      clone.ready(function () {
+      var clone = hyperdrive(dir, src.key)
+      clone.on('content', function () {
         t.ok(!clone.metadata.writable, 'clone metadata not writable')
-        t.ok(!clone.contentWritable, 'clone content not writable')
+        t.ok(!clone.content.writable, 'clone content not writable')
         t.same(clone.key, src.key, 'keys match')
         cleanup(function (err) {
           t.ifError(err)
@@ -58,17 +57,16 @@ tape('dir storage for non-writable drive', function (t) {
         })
       })
 
-      var stream = clone.replicate(true)
-      stream.pipe(src.replicate(false)).pipe(stream)
+      var stream = clone.replicate()
+      stream.pipe(src.replicate()).pipe(stream)
     })
   })
 })
 
 tape('dir storage without permissions emits error', function (t) {
-  // TODO: This error should not be emitted twice -- fix error propagation.
   t.plan(1)
-  var drive = dwebfs('/')
-  drive.on('error', function (err) {
+  var archive = hyperdrive('/')
+  archive.on('error', function (err) {
     t.ok(err, 'got error')
   })
 })
@@ -78,23 +76,21 @@ tape('write and read (sparse)', function (t) {
 
   tmp(function (err, dir, cleanup) {
     t.ifError(err)
-    var drive = dwebfs(dir)
-    drive.on('ready', function () {
-      var clone = create(drive.key, { sparse: true })
+    var archive = hyperdrive(dir)
+    archive.on('ready', function () {
+      var clone = create(archive.key, {sparse: true})
       clone.on('ready', function () {
-        drive.writeFile('/hello.txt', 'world', function (err) {
+        archive.writeFile('/hello.txt', 'world', function (err) {
           t.error(err, 'no error')
-          var stream = clone.replicate(true, { live: true })
-          stream.pipe(drive.replicate(false, { live: true })).pipe(stream)
-          setTimeout(() => {
-            var readStream = clone.createReadStream('/hello.txt')
-            readStream.on('error', function (err) {
-              t.error(err, 'no error')
-            })
-            readStream.on('data', function (data) {
-              t.same(data.toString(), 'world')
-            })
-          }, 50)
+          var stream = clone.replicate()
+          stream.pipe(archive.replicate()).pipe(stream)
+          var readStream = clone.createReadStream('/hello.txt')
+          readStream.on('error', function (err) {
+            t.error(err, 'no error')
+          })
+          readStream.on('data', function (data) {
+            t.same(data.toString(), 'world')
+          })
         })
       })
     })
@@ -102,19 +98,16 @@ tape('write and read (sparse)', function (t) {
 })
 
 tape('sparse read/write two files', function (t) {
-  var drive = create()
-  drive.on('ready', function () {
-    var clone = create(drive.key, { sparse: true })
-    clone.ready(err => {
+  var archive = create()
+  archive.on('ready', function () {
+    var clone = create(archive.key, {sparse: true})
+    archive.writeFile('/hello.txt', 'world', function (err) {
       t.error(err, 'no error')
-      drive.writeFile('/hello.txt', 'world', function (err) {
+      archive.writeFile('/hello2.txt', 'world', function (err) {
         t.error(err, 'no error')
-        drive.writeFile('/hello2.txt', 'world', function (err) {
-          t.error(err, 'no error')
-          var stream = clone.replicate(true, { live: true })
-          stream.pipe(drive.replicate(false, { live: true })).pipe(stream)
-          clone.metadata.update(start)
-        })
+        var stream = clone.replicate()
+        stream.pipe(archive.replicate()).pipe(stream)
+        clone.metadata.update(start)
       })
     })
 

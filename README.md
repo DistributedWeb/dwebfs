@@ -1,23 +1,20 @@
 # Hyperdrive
 
-#### *Note*: This is a prerelease version of Hyperdrive that's backed by [Hypertrie](https://github.com/distributedweb/dwtrie)
-#### This version is not yet API-complete.
-
 Hyperdrive is a secure, real time distributed file system
 
 ``` js
-npm install dwebfs@prerelease
+npm install hyperdrive
 ```
 
-[![Build Status](https://travis-ci.org/distributedweb/dwebfs.svg?branch=master)](https://travis-ci.org/distributedweb/dwebfs)
+[![Build Status](https://travis-ci.org/mafintosh/hyperdrive.svg?branch=master)](https://travis-ci.org/mafintosh/hyperdrive)
 
 ## Usage
 
 Hyperdrive aims to implement the same API as Node.js' core fs module.
 
 ``` js
-var dwebfs = require('dwebfs')
-var archive = dwebfs('./my-first-dwebfs') // content will be stored in this folder
+var hyperdrive = require('hyperdrive')
+var archive = hyperdrive('./my-first-hyperdrive') // content will be stored in this folder
 
 archive.writeFile('/hello.txt', 'world', function (err) {
   if (err) throw err
@@ -47,7 +44,7 @@ server.listen(10000)
 
 // ... on another
 
-var clonedArchive = dwebfs('./my-cloned-dwebfs', origKey)
+var clonedArchive = hyperdrive('./my-cloned-hyperdrive', origKey)
 var socket = net.connect(10000)
 
 socket.pipe(clonedArchive.replicate()).pipe(socket)
@@ -57,9 +54,9 @@ It also comes with build in versioning and real time replication. See more below
 
 ## API
 
-#### `var archive = dwebfs(storage, [key], [options])`
+#### `var archive = hyperdrive(storage, [key], [options])`
 
-Create a new dwebfs.
+Create a new hyperdrive.
 
 The `storage` parameter defines how the contents of the archive will be stored. It can be one of the following, depending on how much control you require over how the archive is stored.
 
@@ -69,8 +66,8 @@ The `storage` parameter defines how the contents of the archive will be stored. 
 
   - `name`: the name of the file to be stored
   - `opts`
-    - `key`: the [feed key](https://github.com/distributedweb/ddatabase#feedkey) of the underlying Hypercore instance
-    - `discoveryKey`: the [discovery key](https://github.com/distributedweb/ddatabase#feeddiscoverykey) of the underlying Hypercore instance
+    - `key`: the [feed key](https://github.com/mafintosh/hypercore#feedkey) of the underlying Hypercore instance
+    - `discoveryKey`: the [discovery key](https://github.com/mafintosh/hypercore#feeddiscoverykey) of the underlying Hypercore instance
   - `archive`: the current Hyperdrive instance
 
   The functions need to return a a [`random-access-storage`](https://github.com/random-access-storage/) instance.
@@ -81,13 +78,14 @@ Options include:
 {
   sparse: true, // only download data on content feed when it is specifically requested
   sparseMetadata: true // only download data on metadata feed when requested
-  metadataStorageCacheSize: 65536 // how many entries to use in the metadata ddatabase's LRU cache
-  contentStorageCacheSize: 65536 // how many entries to use in the content ddatabase's LRU cache
-  extensions: [], // The list of extension message types to use
+  extensions: [] // Optionally specify which extensions to use when replicating
+  metadataStorageCacheSize: 65536 // how many entries to use in the metadata hypercore's LRU cache
+  contentStorageCacheSize: 65536 // how many entries to use in the content hypercore's LRU cache
+  treeCacheSize: 65536 // how many entries to use in the append-tree's LRU cache
 }
 ```
 
-Note that a cloned dwebfs archive can be "sparse". Usually (by setting `sparse: true`) this means that the content is not downloaded until you ask for it, but the entire metadata feed is still downloaded. If you want a _very_ sparse archive, where even the metadata feed is not downloaded until you request it, then you should _also_ set `sparseMetadata: true`.
+Note that a cloned hyperdrive archive can be "sparse". Usually (by setting `sparse: true`) this means that the content is not downloaded until you ask for it, but the entire metadata feed is still downloaded. If you want a _very_ sparse archive, where even the metadata feed is not downloaded until you request it, then you should _also_ set `sparseMetadata: true`.
 
 #### `var stream = archive.replicate([options])`
 
@@ -117,55 +115,26 @@ A key derived from the public key that can be used to discovery other peers shar
 
 A boolean indicating whether the archive is writable.
 
-#### `archive.peers`
-
-A list of peers currently replicating with this archive
-
 #### `archive.on('ready')`
 
 Emitted when the archive is fully ready and all properties has been populated.
+
+#### `archive.on('update')'
+
+Emitted when the archive has got a new change.
 
 #### `archive.on('error', err)`
 
 Emitted when a critical error during load happened.
 
-#### `archive.on('update')`
+#### `archive.on('close')`
 
-Emitted when there is a new update to the archive.
+Emitted when the archive has been closed
 
 #### `archive.on('extension', name, message, peer)`
 
-Emitted when a peer has sent you an extension message. The `name` is a string from one of the extension types in the constructor, `message` is a buffer containing the message contents, and `peer` is a reference to the peer that sent the extension. You can send an extension back with `peer.extension(name, message)`.
-
-#### `archive.on('peer-add', peer)`
-
-Emitted when a new peer has been added.
-
-```js
-const archive = Hyperdrive({
-  extension: ['example']
-})
-
-archive.on('extension', (name, message, peer) => {
-  console.log(name, message.toString('utf8'))
-})
-
-archive.on('peer-add', (peer) => {
-  peer.extension('example', Buffer.from('Hello World!', 'utf8'))
-})
-```
-
-#### `archive.on('peer-remove', peer)`
-
-Emitted when a peer has been removed.
-
-#### `archive.on('close')`
-
-Emitted when the archive has been closed.
-
-#### `archive.extension(name, message)`
-
-Broadcasts an extension message to all connected peers. The `name` must be a string for an extension passed in the constructor and the message must be a buffer.
+Emitted when a peer sends you an extension message with `archive.extension()`.
+You can respond with `peer.extension(name, message)`.
 
 #### `var oldDrive = archive.checkout(version, [opts])`
 
@@ -173,8 +142,8 @@ Checkout a readonly copy of the archive at an old version. Options are used to c
 
 ```js
 {
-  metadataStorageCacheSize: 65536 // how many entries to use in the metadata ddatabase's LRU cache
-  contentStorageCacheSize: 65536 // how many entries to use in the content ddatabase's LRU cache
+  metadataStorageCacheSize: 65536 // how many entries to use in the metadata hypercore's LRU cache
+  contentStorageCacheSize: 65536 // how many entries to use in the content hypercore's LRU cache
   treeCacheSize: 65536 // how many entries to use in the append-tree's LRU cache
 }
 ```
@@ -189,6 +158,14 @@ You can use this with `.checkout(version)` to download a specific version of the
 ``` js
 archive.checkout(version).download()
 ```
+
+#### `var stream = archive.history([options])`
+
+Get a stream of all changes and their versions from this archive.
+
+### `archive.extension(name, message)`
+
+Send an extension message to connected peers. [Read more in the hypercore docs](https://github.com/mafintosh/hypercore#feedextensionname-message).
 
 #### `var stream = archive.createReadStream(name, [options])`
 
@@ -221,11 +198,24 @@ or a string can be passed as options to simply set the encoding - similar to fs.
 
 If `cached` is set to `true`, this function returns results only if they have already been downloaded.
 
+#### `var stream = archive.createDiffStream(version, [options])`
+
+Diff this archive with another version. `version` can both be a version number of a checkout instance of the archive. The `data` objects looks like this
+
+``` js
+{
+  type: 'put' | 'del',
+  name: '/some/path/name.txt',
+  value: {
+    // the stat object
+  }
+}
+```
+
 #### `var stream = archive.createWriteStream(name, [options])`
 
 Write a file as a stream. Similar to fs.createWriteStream.
 If `options.cached` is set to `true`, this function returns results only if they have already been downloaded.
-`options.metadata` is optionally an object with string keys and buffer objects to set metadata on the file entry.
 
 #### `archive.writeFile(name, buffer, [options], [callback])`
 
@@ -251,10 +241,11 @@ Options include:
 
 ``` js
 {
-    recursive: false, // Recurse into subdirectories and mounts
-    noMount: false // Do not recurse into mounts when recursive: true
+    cached: true|false, // default: false
 }
 ```
+
+If `cached` is set to `true`, this function returns results from the local version of the archive’s append-tree. Default behavior is to fetch the latest remote version of the archive before returning list of directories.
 
 #### `archive.stat(name, [options], callback)`
 
@@ -279,8 +270,6 @@ Stat {
   linkname: undefined }
 ```
 
-The stat may include a metadata object (string keys, buffer values) with metadata that was passed into `writeFile` or `createWriteStream`.
-
 The output object includes methods similar to fs.stat:
 
 ``` js
@@ -292,9 +281,12 @@ stat.isFile()
 Options include:
 ```js
 {
+  cached: true|false // default: false,
   wait: true|false // default: true
 }
 ```
+
+If `cached` is set to `true`, this function returns results only if they have already been downloaded.
 
 If `wait` is set to `true`, this function will wait for data to be downloaded. If false, will return an error.
 
@@ -305,9 +297,12 @@ Stat an entry but do not follow symlinks. Similar to fs.lstat.
 Options include:
 ```js
 {
+  cached: true|false // default: false,
   wait: true|false // default: true
 }
 ```
+
+If `cached` is set to `true`, this function returns results only if they have already been downloaded.
 
 If `wait` is set to `true`, this function will wait for data to be downloaded. If false, will return an error.
 
@@ -318,13 +313,16 @@ Similar to fs.access.
 Options include:
 ```js
 {
+  cached: true|false // default: false,
   wait: true|false // default: true
 }
 ```
 
+If `cached` is set to `true`, this function returns results only if they have already been downloaded.
+
 If `wait` is set to `true`, this function will wait for data to be downloaded. If false, will return an error.
 
-#### `archive.open(name, flags, callback)`
+#### `archive.open(name, flags, [mode], callback)`
 
 Open a file and get a file descriptor back. Similar to fs.open.
 
@@ -333,53 +331,6 @@ Note that currently only read mode is supported in this API.
 #### `archive.read(fd, buf, offset, len, position, callback)`
 
 Read from a file descriptor into a buffer. Similar to fs.read.
-
-#### `archive.write(fd, buf, offset, len, pos, cb)`
-
-Write from a buffer into a file descriptor. Similar to fs.write.
-
-#### `archive.symlink(target, linkname, cb)`
-
-Create a symlink from `linkname` to `target`.
-
-#### `archive.mount(name, key, opts, cb)`
-
-Mounts another Hyperdrive at the specified mountpoint.
-
-If a `version` is specified in the options, then the mountpoint will reference a static checkout (it will never update).
-
-Options include:
-```js
-{
-  version: (drive version) // The drive version to checkout.
-}
-```
-
-#### `archive.unmount(name, cb)`
-
-Unmount a previously-mounted Hyperdrive.
-
-#### `archive.createMountStream(opts)`
-
-Create a stream containing content/metadata feeds for all mounted Hyperdrives. Each entry in the stream has the form:
-```js
-{
-  path: '/',                // The mountpoint
-  metadata: Hypercore(...), // The mounted metadata feed
-  content: Hypercore(...)   // The mounted content feed  
-}
-```
-
-#### `archive.getAllMounts(opts, cb)`
-
-Returns a Map of the content/metadata feeds for all mounted Hyperdrives, keyed by their mountpoints. The results will always include the top-level feeds (with key '/').
-
-Options include:
-```js
-{
-  memory: true|false // Only list drives currently cached in memory (default: false).
-}
-```
 
 #### `archive.close(fd, [callback])`
 
