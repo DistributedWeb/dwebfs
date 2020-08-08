@@ -7,7 +7,7 @@
     "append-tree": "^2.3.5",
     "duplexify": "^3.5.0",
     "from2": "^2.3.0",
-    "ddatabase": "git://github.com/DistributedWeb/ddatabase.git#e7fd2936c271840178807db9b84411ea9098072f",
+    "ddatabase": "git://github.com/DistributedWeb/ddatabase.git#5e315d8bfc05241fbc99fedf07f4c23f04323f85",
     "inherits": "^2.0.3",
     "mutexify": "^1.1.0",
     "protocol-buffers-encodings": "^1.1.0",
