@@ -1,7 +1,7 @@
 {
-  "name": "hyperdrive",
-  "version": "10.16.2",
-  "description": "Hyperdrive is a secure, real time distributed file system",
+  "name": "dwebfs",
+  "version": "1.0.0",
+  "description": "DWebFs is a secure, real time distributed file system",
   "main": "index.js",
   "scripts": {
     "test": "tape test/index.js",
@@ -9,28 +9,28 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mafintosh/hyperdrive.git"
+    "url": "git+https://github.com/distributedweb/dwebfs.git"
   },
   "keywords": [
-    "hyperdrive",
-    "hypertrie"
+    "dwebfs",
+    "dwtrie"
   ],
-  "author": "Mathias Buus (@mafintosh)",
+  "author": "Jared Rice (@jared)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/mafintosh/hyperdrive/issues"
+    "url": "https://github.com/distributedweb/dwebfs/issues"
   },
-  "homepage": "https://github.com/mafintosh/hyperdrive#readme",
+  "homepage": "https://github.com/distributedweb/dwebfs#readme",
   "dependencies": {
     "byte-stream": "^2.1.0",
-    "corestore": "^5.3.2",
+    "dwebx": "git://github.com/DistributedWeb/dwebx.git#2009bb01b0919b5d8b1f8ca4ede38aa5e8078123",
     "custom-error-class": "^1.0.0",
     "duplexify": "^3.7.1",
     "filesystem-constants": "^1.0.0",
-    "hypercore-byte-stream": "^1.0.2",
-    "hypercore-protocol": "^8.0.0",
-    "hyperdrive-schemas": "^2.0.0",
-    "mountable-hypertrie": "^2.6.0",
+    "ddatabase-byte-stream": "git://github.com/DistributedWeb/ddatabase-byte-stream.git#82160ec64f34f48af986eaa37cf7d5c043aa93fb",
+    "ddatabase-protocol": "git://github.com/DistributedWeb/ddatabase-protocol.git#bf7d74a532d86b138112b90b3e71f3f645cd0fdb",
+    "dwebfs-schemas": "git://github.com/DistributedWeb/dwebfs-schemas.git#4363a431cc5e72c247f678c6e54cd55f77198aac",
+    "mountable-dwtrie": "git://github.com/DistributedWeb/mountable-dwtrie.git#0f7a456c4fa8b56199bd8039b416226ccfd695d6",
     "mutexify": "^1.2.0",
     "nanoiterator": "^1.2.0",
     "nanoresource": "^1.3.0",

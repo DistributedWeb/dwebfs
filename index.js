@@ -10,12 +10,12 @@ const duplexify = require('duplexify')
 const pump = require('pump')
 const { Transform } = require('streamx')
 
-const coreByteStream = require('hypercore-byte-stream')
+const coreByteStream = require('ddatabase-byte-stream')
 const Nanoresource = require('nanoresource/emitter')
-const HypercoreProtocol = require('hypercore-protocol')
-const MountableHypertrie = require('mountable-hypertrie')
-const Corestore = require('corestore')
-const { Stat } = require('hyperdrive-schemas')
+const HypercoreProtocol = require('ddatabase-protocol')
+const MountableHypertrie = require('mountable-dwtrie')
+const Corestore = require('dwebx')
+const { Stat } = require('dwebfs-schemas')
 
 const createFileDescriptor = require('./lib/fd')
 const errors = require('./lib/errors')
@@ -30,10 +30,10 @@ const STDIO_CAP = 20
 const WRITE_STREAM_BLOCK_SIZE = 524288
 const NOOP_FILE_PATH = ' '
 
-module.exports = (...args) => new Hyperdrive(...args)
+module.exports = (...args) => new DWebFs(...args)
 module.exports.constants = require('filesystem-constants').linux
 
-class Hyperdrive extends Nanoresource {
+class DWebFs extends Nanoresource {
   constructor (storage, key, opts) {
     super()
 
@@ -53,7 +53,7 @@ class Hyperdrive extends Nanoresource {
     this.promises = new HyperdrivePromises(this)
 
     this._namespace = opts.namespace
-    this.corestore = defaultCorestore(storage, {
+    this.dwebx = defaultCorestore(storage, {
       ...opts,
       valueEncoding: 'binary',
       // TODO: Support mixed sparsity.
@@ -61,9 +61,9 @@ class Hyperdrive extends Nanoresource {
       extensions: opts.extensions
     })
 
-    if (this.corestore !== storage) this.corestore.on('error', err => this.emit('error', err))
+    if (this.dwebx !== storage) this.dwebx.on('error', err => this.emit('error', err))
     if (opts.namespace) {
-      this.corestore = this.corestore.namespace(opts.namespace)
+      this.dwebx = this.dwebx.namespace(opts.namespace)
     }
 
     // Set in ready.
@@ -99,7 +99,7 @@ class Hyperdrive extends Nanoresource {
   }
 
   get version () {
-    // TODO: The trie version starts at 1, so the empty hyperdrive version is also 1. This should be 0.
+    // TODO: The trie version starts at 1, so the empty dwebfs version is also 1. This should be 0.
     return this.db.version
   }
 
@@ -119,15 +119,15 @@ class Hyperdrive extends Nanoresource {
 
   _open (cb) {
     const self = this
-    return this.corestore.ready(err => {
+    return this.dwebx.ready(err => {
       if (err) return cb(err)
-      this.metadata = this.corestore.default(this._metadataOpts)
-      this.db = this.db || new MountableHypertrie(this.corestore, this.key, {
+      this.metadata = this.dwebx.default(this._metadataOpts)
+      this.db = this.db || new MountableHypertrie(this.dwebx, this.key, {
         feed: this.metadata,
         sparse: this.sparseMetadata,
         extension: this.opts.extension !== false
       })
-      this.db.on('hypertrie', onhypertrie)
+      this.db.on('dwtrie', onhypertrie)
       this.db.on('error', onerror)
 
       self.metadata.on('error', onerror)
@@ -139,7 +139,7 @@ class Hyperdrive extends Nanoresource {
 
       this._unlistens.push(() => {
         self.db.removeListener('error', onerror)
-        self.db.removeListener('hypertrie', onhypertrie)
+        self.db.removeListener('dwtrie', onhypertrie)
         self.metadata.removeListener('error', onerror)
         self.metadata.removeListener('append', update)
         self.metadata.removeListener('extension', extension)
@@ -170,7 +170,7 @@ class Hyperdrive extends Nanoresource {
     })
 
     /**
-     * The first time the hyperdrive is created, we initialize both the db (metadata feed) and the content feed here.
+     * The first time the dwebfs is created, we initialize both the db (metadata feed) and the content feed here.
      */
     function initialize () {
       self._contentStateFromKey(null, (err, contentState) => {
@@ -186,7 +186,7 @@ class Hyperdrive extends Nanoresource {
     }
 
     /**
-     * If the hyperdrive has already been created, wait for the db (metadata feed) to load.
+     * If the dwebfs has already been created, wait for the db (metadata feed) to load.
      * If the metadata feed is writable, we can immediately load the content feed from its private key.
      * (Otherwise, we need to read the feed's metadata block first)
      */
@@ -253,7 +253,7 @@ class Hyperdrive extends Nanoresource {
   _contentStateFromKey (publicKey, cb) {
     const contentOpts = { key: publicKey, ...contentOptions(this), cache: { data: false } }
     try {
-      var feed = this.corestore.get(contentOpts)
+      var feed = this.dwebx.get(contentOpts)
     } catch (err) {
       return cb(err)
     }
@@ -386,8 +386,8 @@ class Hyperdrive extends Nanoresource {
       if (err) return stream.destroy(err)
       return this.stat(name, { file: true }, (err, st, trie) => {
         if (err) return stream.destroy(err)
-        if (st.mount && st.mount.hypercore) {
-          const feed = self.corestore.get({
+        if (st.mount && st.mount.ddatabase) {
+          const feed = self.dwebx.get({
             key: st.mount.key,
             sparse: self.sparse
           })
@@ -405,7 +405,7 @@ class Hyperdrive extends Nanoresource {
     })
 
     function oncontent (st, contentState) {
-      if (st.mount && st.mount.hypercore) {
+      if (st.mount && st.mount.ddatabase) {
         var byteOffset = 0
         var blockOffset = 0
         var blockLength = st.blocks
@@ -430,7 +430,7 @@ class Hyperdrive extends Nanoresource {
   }
 
   createDiffStream (other, prefix, opts) {
-    if (other instanceof Hyperdrive) other = other.version
+    if (other instanceof DWebFs) other = other.version
     if (typeof prefix === 'object') return this.createDiffStream(other, '/', prefix)
     prefix = prefix || '/'
 
@@ -819,7 +819,7 @@ class Hyperdrive extends Nanoresource {
     const stream = (opts && opts.stream) || new HypercoreProtocol(isInitiator, { ...opts })
     this.ready(err => {
       if (err) return stream.destroy(err)
-      this.corestore.replicate(isInitiator, { ...opts, stream })
+      this.dwebx.replicate(isInitiator, { ...opts, stream })
     })
     return stream
   }
@@ -830,7 +830,7 @@ class Hyperdrive extends Nanoresource {
       _db: this.db.checkout(version),
       _contentStates: this._contentStates,
     }
-    return new Hyperdrive(this.corestore, this.key, opts)
+    return new DWebFs(this.dwebx, this.key, opts)
   }
 
   _closeFile (fd, cb) {
@@ -911,7 +911,7 @@ class Hyperdrive extends Nanoresource {
             total.blocks = stat.blocks
             total.size = stat.size
             total.downloadedBlocks = downloadedBlocks
-            // TODO: This is not possible to implement now. Need a better byte length index in hypercore.
+            // TODO: This is not possible to implement now. Need a better byte length index in ddatabase.
             // total.downloadedBytes = 0
             return cb(null, total)
           })
@@ -1094,12 +1094,12 @@ class Hyperdrive extends Nanoresource {
       key,
       version: opts.version,
       hash: opts.hash,
-      hypercore: !!opts.hypercore
+      ddatabase: !!opts.ddatabase
     }
-    statOpts.directory = !opts.hypercore
+    statOpts.directory = !opts.ddatabase
 
-    if (opts.hypercore) {
-      const core = this.corestore.get({
+    if (opts.ddatabase) {
+      const core = this.dwebx.get({
         key,
         ...opts,
         parents: [this.key],
@@ -1137,7 +1137,7 @@ class Hyperdrive extends Nanoresource {
     this.stat(path, (err, st) => {
       if (err) return cb(err)
       if (!st.mount) return cb(new Error('Can only unmount mounts.'))
-      if (st.mount.hypercore) {
+      if (st.mount.ddatabase) {
         return this.unlink(path, cb)
       } else {
         return this.db.unmount(path, cb)

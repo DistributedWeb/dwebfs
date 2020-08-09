@@ -1,37 +1,37 @@
-# Hyperdrive
-[![Build Status](https://travis-ci.org/hypercore-protocol/hyperdrive.svg?branch=master)](https://travis-ci.org/hypercore-protocol/hyperdrive)
+# DWebFs
+[![Build Status](https://travis-ci.org/ddatabase-protocol/dwebfs.svg?branch=master)](https://travis-ci.org/ddatabase-protocol/dwebfs)
 
-Hyperdrive is a secure, real-time distributed file system designed for easy P2P file sharing.
+DWebFs is a secure, real-time distributed file system designed for easy P2P file sharing.
 
 It has a handful of cool features:
 * __Version Controlled__: Files are versioned by default, making it easy to see historical changes and prevent data loss.
 * __Composable__: Using our mount system, Hyperdrives can be nested within other Hyperdrives, enabling powerful multi-user collaboration tools.
-* __Shareable with One Link__: You can share an entire Hyperdrive with others by sending them a single 32-byte key. If you'd like more granularity, our mount system enables the fine-grained sharing of specific directories.
+* __Shareable with One Link__: You can share an entire DWebFs with others by sending them a single 32-byte key. If you'd like more granularity, our mount system enables the fine-grained sharing of specific directories.
 * __Sparse Downloading__ By default, readers only download the portions of files they need, on demand. You can stream media from friends without jumping through hoops! Seeking is snappy and there's no buffering.
 * __Fast Lookups__: File metadata is stored in a distributed trie structure, meaning files can be located with minimal network lookups.
-* __Version Tagging__: You can assign string names to Hyperdrive versions and store these within the drive, making it straightforward to switch between semantically-meaningful versions.
+* __Version Tagging__: You can assign string names to DWebFs versions and store these within the drive, making it straightforward to switch between semantically-meaningful versions.
 
-Hyperdrive can also be used in a variety of ways:
-* [__The Daemon__](https://github.com/hypercore-protocol/hyperdrive-daemon): The Hyperdrive daemon provides both a gRPC API for managing remote Hyperdrives, and a FUSE API that turns Hyperdrives into normal folders on your computer.
-* [__The Client__](https://github.com/hypercore-protocol/hyperdrive-daemon-client): A Node.js client for the daemon. With this you can build services targeting remote drives.
-* [__Beaker__](https://beakerbrowser.com): An experimental browser that has first-class support for Hyperdrive.
-* [__Standalone__](#api): Hyperdrive has flexible storage/networking interfaces, making it easy to embed within larger projects.
+DWebFs can also be used in a variety of ways:
+* [__The Daemon__](https://github.com/ddatabase-protocol/dwebfs-daemon): The DWebFs daemon provides both a gRPC API for managing remote Hyperdrives, and a FUSE API that turns Hyperdrives into normal folders on your computer.
+* [__The Client__](https://github.com/ddatabase-protocol/dwebfs-daemon-client): A Node.js client for the daemon. With this you can build services targeting remote drives.
+* [__Beaker__](https://dbrowser.com): An experimental browser that has first-class support for DWebFs.
+* [__Standalone__](#api): DWebFs has flexible storage/networking interfaces, making it easy to embed within larger projects.
 
 ## Installation
-If you're looking for a "batteries included" experience, check out the [Hyperdrive daemon](https://github.com/hypercore-protocol/hyperdrive-daemon).
+If you're looking for a "batteries included" experience, check out the [DWebFs daemon](https://github.com/ddatabase-protocol/dwebfs-daemon).
 
 For standalone use in your modules, you can install through NPM:
 ``` js
-npm install hyperdrive
+npm install dwebfs
 ```
 
 ## Usage
 
-Hyperdrive aims to implement the same API as Node.js' core `fs` module, and mirrors many POSIX APIs.
+DWebFs aims to implement the same API as Node.js' core `fs` module, and mirrors many POSIX APIs.
 
 ``` js
-var hyperdrive = require('hyperdrive')
-var drive = hyperdrive('./my-first-hyperdrive') // content will be stored in this folder
+var dwebfs = require('dwebfs')
+var drive = dwebfs('./my-first-dwebfs') // content will be stored in this folder
 
 drive.writeFile('/hello.txt', 'world', function (err) {
   if (err) throw err
@@ -61,31 +61,31 @@ server.listen(10000)
 
 // ... on another
 
-var clonedDrive = hyperdrive('./my-cloned-hyperdrive', origKey)
+var clonedDrive = dwebfs('./my-cloned-dwebfs', origKey)
 var socket = net.connect(10000)
 
 socket.pipe(clonedDrive.replicate()).pipe(socket)
 ```
 
-It also comes with build in versioning, live replication (where the replication streams remain open, syncing new changes), and nested Hyperdrive mounting. See more below.
+It also comes with build in versioning, live replication (where the replication streams remain open, syncing new changes), and nested DWebFs mounting. See more below.
 
 ## API
 
-#### `var drive = hyperdrive(storage, [key], [options])`
+#### `var drive = dwebfs(storage, [key], [options])`
 
-Create a new Hyperdrive.
+Create a new DWebFs.
 
 The `storage` parameter defines how the contents of the drive will be stored. It can be one of the following, depending on how much control you require over how the drive is stored.
 
 - If you pass in a string, the drive content will be stored in a folder at the given path.
 - You can also pass in a function. This function will be called with the name of each of the required files for the drive, and needs to return a [`random-access-storage`](https://github.com/random-access-storage/) instance.
-- If you require complete control, you can also pass in a [corestore](https://github.com/andrewosh/corestore) instance (or an API-compatible replacement).
+- If you require complete control, you can also pass in a [dwebx](https://github.com/andrewosh/dwebx) instance (or an API-compatible replacement).
 
   - `name`: the name of the file to be stored
   - `opts`
-    - `key`: the [feed key](https://github.com/mafintosh/hypercore#feedkey) of the underlying Hypercore instance
-    - `discoveryKey`: the [discovery key](https://github.com/mafintosh/hypercore#feeddiscoverykey) of the underlying Hypercore instance
-  - `drive`: the current Hyperdrive instance
+    - `key`: the [feed key](https://github.com/distributedweb/ddatabase#feedkey) of the underlying DDatabase instance
+    - `discoveryKey`: the [discovery key](https://github.com/distributedweb/ddatabase#feeddiscoverykey) of the underlying DDatabase instance
+  - `drive`: the current DWebFs instance
 
 Options include:
 
@@ -97,12 +97,12 @@ Options include:
 }
 ```
 
-For more storage configuration, you can also provide any corestore option.
+For more storage configuration, you can also provide any dwebx option.
 
-Note that a cloned hyperdrive drive is fully "sparse" by default, meaning that the `sparse` and `sparseMetadata` options are both true. This is usually the best way to use Hyperdrive, but you can also set these options to false to enable eager downloading of both the content and the metadata. If you'd like more control over download strategies, you can use the `download` method directly.
+Note that a cloned dwebfs drive is fully "sparse" by default, meaning that the `sparse` and `sparseMetadata` options are both true. This is usually the best way to use DWebFs, but you can also set these options to false to enable eager downloading of both the content and the metadata. If you'd like more control over download strategies, you can use the `download` method directly.
 
 ### Replication
-Hyperdrive replication occurs through streams, meaning you can pipe a drive's replication stream into any stream-based transport system you'd like. If you have many nested Hyperdrives mounted within a parent drive, `replicate` will sync all children as well.
+DWebFs replication occurs through streams, meaning you can pipe a drive's replication stream into any stream-based transport system you'd like. If you have many nested Hyperdrives mounted within a parent drive, `replicate` will sync all children as well.
 
 #### `var stream = drive.replicate([options])`
 
@@ -156,7 +156,7 @@ Emitted when there is a new update to the drive.
 Emitted when a new peer has been added.
 
 ```js
-const drive = Hyperdrive()
+const drive = DWebFs()
 
 drive.on('peer-add', (peer) => {
   console.log('Connected peer', peer.remotePublicKey)
@@ -177,7 +177,7 @@ Emitted when the drive has been closed.
 
 ### Extension Management
 
-Hyperdrive supports [hypercore](https://github.com/hypercore-protocol/hypercore#ext--feedregisterextensionname-handlers) extensions, letting you plug custom logic into a drive's replication streams.
+DWebFs supports [ddatabase](https://github.com/ddatabase-protocol/ddatabase#ext--feedregisterextensionname-handlers) extensions, letting you plug custom logic into a drive's replication streams.
 
 #### `ext = drive.registerExtension(name, handlers)`
 
@@ -205,16 +205,16 @@ Send an extension message to a specific peer.
 Send a message to every peer you are connected to.
 
 ### Version Control
-Since Hyperdrive is built on top of append-only logs, old versions of files are preserved by default. You can get a read-only snapshot of a drive at any point in time with the `checkout` function, which takes a version number. Additionally, you can tag versions with string names, making them more parseable.
+Since DWebFs is built on top of append-only logs, old versions of files are preserved by default. You can get a read-only snapshot of a drive at any point in time with the `checkout` function, which takes a version number. Additionally, you can tag versions with string names, making them more parseable.
 
 #### `var oldDrive = drive.checkout(version, [opts])`
 
-Checkout a readonly copy of the drive at an old version. Options for the checkout are duplicated from the parent by default, but you can also pass in additional Hyperdrive options.
+Checkout a readonly copy of the drive at an old version. Options for the checkout are duplicated from the parent by default, but you can also pass in additional DWebFs options.
 
 #### `drive.createTag(name, [version], cb)`
 Create a tag that maps to a given version. If a version is not provided, the current version will be used.
 
-Tags are stored inside the drive's "hidden trie," meaning they're not enumerable using Hyperdrive's standard filesystem methods. They will replicate with all the other data in the drive, though.
+Tags are stored inside the drive's "hidden trie," meaning they're not enumerable using DWebFs's standard filesystem methods. They will replicate with all the other data in the drive, though.
 
 #### `drive.getTaggedVersion(name, cb)`
 Return the version corresponding to a tag.
@@ -395,7 +395,7 @@ Options include:
 If `wait` is set to `true`, this function will wait for data to be downloaded. If false, will return an error.
 
 ### File Descriptors
-If you want more control over your reads and writes, you can open file descriptors. The file descriptor API mirrors Node's descriptors. Importantly, Hyperdrive does not currently handle random-access writes. Similarly, appends require the previous contents of the file to be duplicated, though this all happens internally. Random-access reads, on the other hand, are fully supported and very fast.
+If you want more control over your reads and writes, you can open file descriptors. The file descriptor API mirrors Node's descriptors. Importantly, DWebFs does not currently handle random-access writes. Similarly, appends require the previous contents of the file to be duplicated, though this all happens internally. Random-access reads, on the other hand, are fully supported and very fast.
 
 We're still investigating more performant solutions to random-access write and appends, and it's high on our priority list! 
 
@@ -417,14 +417,14 @@ Write from a buffer into a file descriptor. Similar to fs.write.
 
 Create a symlink from `linkname` to `target`.
 
-### Hyperdrive Mounting
-Hyperdrive supports "mounting" other Hyperdrives at paths within a parent drive. This means that if your friend has a photo album drive, you can nest their drive within your own by calling `myDrive.mount('photos/my-friends-album', <my-friends-album-key>)`.
+### DWebFs Mounting
+DWebFs supports "mounting" other Hyperdrives at paths within a parent drive. This means that if your friend has a photo album drive, you can nest their drive within your own by calling `myDrive.mount('photos/my-friends-album', <my-friends-album-key>)`.
 
 This feature is useful for composing larger collections out of smaller shareable units, or for aggregating content from many users into one aggregate drive. One pattern you might want to try is a "group" where each user has a structured drive with standard directory names within a parent (i.e. `my-group/userA/docs`, `my-group/userB/docs`). Using this pattern, it's easy to aggregate all "docs" with a recursive readdir over the group.
 
 #### `drive.mount(name, key, opts, cb)`
 
-Mounts another Hyperdrive at the specified mountpoint.
+Mounts another DWebFs at the specified mountpoint.
 
 If a `version` is specified in the options, then the mountpoint will reference a static checkout (it will never update).
 
@@ -437,7 +437,7 @@ Options include:
 
 #### `drive.unmount(name, cb)`
 
-Unmount a previously-mounted Hyperdrive.
+Unmount a previously-mounted DWebFs.
 
 #### `drive.createMountStream(opts)`
 
@@ -445,8 +445,8 @@ Create a stream containing content/metadata feeds for all mounted Hyperdrives. E
 ```js
 {
   path: '/',                // The mountpoint
-  metadata: Hypercore(...), // The mounted metadata feed
-  content: Hypercore(...)   // The mounted content feed
+  metadata: DDatabase(...), // The mounted metadata feed
+  content: DDatabase(...)   // The mounted content feed
 }
 ```
 

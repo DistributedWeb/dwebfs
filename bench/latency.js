@@ -2,7 +2,7 @@ const { promisify } = require('util')
 const nanobench = require('nanobench')
 const pump = require('pump')
 const LatencyStream = require('latency-stream')
-const HypercoreProtocol = require('hypercore-protocol')
+const HypercoreProtocol = require('ddatabase-protocol')
 
 const replicateAll = require('../test/helpers/replicate')
 const create = require('../test/helpers/create')

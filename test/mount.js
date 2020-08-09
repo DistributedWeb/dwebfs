@@ -1,10 +1,10 @@
 const test = require('tape')
 const ram = require('random-access-memory')
 
-const Corestore = require('corestore')
+const Corestore = require('dwebx')
 const Replicator = require('./helpers/replicator')
 const create = require('./helpers/create')
-const hyperdrive = require('../')
+const dwebfs = require('../')
 
 test('basic read/write to/from a mount', t => {
   const r = new Replicator(t)
@@ -296,9 +296,9 @@ test('lists nested mounts, shared write capabilities', async t => {
   store.ready(onready)
 
   function onready () {
-    const drive1 = create({ corestore: store, namespace: 'd1' })
-    const drive2 = create({ corestore: store, namespace: 'd2' })
-    const drive3 = create({ corestore: store, namespace: 'd3' })
+    const drive1 = create({ dwebx: store, namespace: 'd1' })
+    const drive2 = create({ dwebx: store, namespace: 'd2' })
+    const drive3 = create({ dwebx: store, namespace: 'd3' })
 
     drive3.ready(err => {
       t.error(err, 'no error')
@@ -330,9 +330,9 @@ test('nested mount readdir returns correct mount', async t => {
   store.ready(onready)
 
   function onready () {
-    const drive1 = create({ corestore: store, namespace: 'd1' })
-    const drive2 = create({ corestore: store, namespace: 'd2' })
-    const drive3 = create({ corestore: store, namespace: 'd3' })
+    const drive1 = create({ dwebx: store, namespace: 'd1' })
+    const drive2 = create({ dwebx: store, namespace: 'd2' })
+    const drive3 = create({ dwebx: store, namespace: 'd3' })
 
     drive3.ready(err => {
       t.error(err, 'no error')
@@ -372,9 +372,9 @@ test('nested mount readdir returns correct mount starting in mountpoint', async 
   store.ready(onready)
 
   function onready () {
-    const drive1 = create({ corestore: store, namespace: 'd1' })
-    const drive2 = create({ corestore: store, namespace: 'd2' })
-    const drive3 = create({ corestore: store, namespace: 'd3' })
+    const drive1 = create({ dwebx: store, namespace: 'd1' })
+    const drive2 = create({ dwebx: store, namespace: 'd2' })
+    const drive3 = create({ dwebx: store, namespace: 'd3' })
 
     drive3.ready(err => {
       t.error(err, 'no error')
@@ -413,9 +413,9 @@ test('nested mount readdir returns correct stat modes', async t => {
   store.ready(onready)
 
   function onready () {
-    const drive1 = create({ corestore: store, namespace: 'd1' })
-    const drive2 = create({ corestore: store, namespace: 'd2' })
-    const drive3 = create({ corestore: store, namespace: 'd3' })
+    const drive1 = create({ dwebx: store, namespace: 'd1' })
+    const drive2 = create({ dwebx: store, namespace: 'd2' })
+    const drive3 = create({ dwebx: store, namespace: 'd3' })
 
     drive3.ready(err => {
       t.error(err, 'no error')
@@ -463,9 +463,9 @@ test('nested mount readdir returns correct stat modes, non-recursive', async t =
   store.ready(onready)
 
   function onready () {
-    const drive1 = create({ corestore: store, namespace: 'd1' })
-    const drive2 = create({ corestore: store, namespace: 'd2' })
-    const drive3 = create({ corestore: store, namespace: 'd3' })
+    const drive1 = create({ dwebx: store, namespace: 'd1' })
+    const drive2 = create({ dwebx: store, namespace: 'd2' })
+    const drive3 = create({ dwebx: store, namespace: 'd3' })
 
     drive3.ready(err => {
       t.error(err, 'no error')
@@ -507,9 +507,9 @@ test('nested mount readdir returns correct inner paths, non-recursive', async t 
   store.ready(onready)
 
   function onready () {
-    const drive1 = create({ corestore: store, namespace: 'd1' })
-    const drive2 = create({ corestore: store, namespace: 'd2' })
-    const drive3 = create({ corestore: store, namespace: 'd3' })
+    const drive1 = create({ dwebx: store, namespace: 'd1' })
+    const drive2 = create({ dwebx: store, namespace: 'd2' })
+    const drive3 = create({ dwebx: store, namespace: 'd3' })
 
     drive3.ready(err => {
       t.error(err, 'no error')
@@ -550,9 +550,9 @@ test('nested mount readdir returns correct inner paths, recursive', async t => {
   store.ready(onready)
 
   function onready () {
-    const drive1 = create({ corestore: store, namespace: 'd1' })
-    const drive2 = create({ corestore: store, namespace: 'd2' })
-    const drive3 = create({ corestore: store, namespace: 'd3' })
+    const drive1 = create({ dwebx: store, namespace: 'd1' })
+    const drive2 = create({ dwebx: store, namespace: 'd2' })
+    const drive3 = create({ dwebx: store, namespace: 'd3' })
 
     drive3.ready(err => {
       t.error(err, 'no error')
@@ -596,9 +596,9 @@ test('nested mount info returns correct mount keys and paths', async t => {
   store.ready(onready)
 
   function onready () {
-    const drive1 = create({ corestore: store, namespace: 'd1' })
-    const drive2 = create({ corestore: store, namespace: 'd2' })
-    const drive3 = create({ corestore: store, namespace: 'd3' })
+    const drive1 = create({ dwebx: store, namespace: 'd1' })
+    const drive2 = create({ dwebx: store, namespace: 'd2' })
+    const drive3 = create({ dwebx: store, namespace: 'd3' })
 
     drive3.ready(err => {
       t.error(err, 'no error')
@@ -664,8 +664,8 @@ test('shared corestores will share write capabilities', async t => {
   store.ready(onready)
 
   function onready () {
-    const drive1 = create({ corestore: store, namespace: 'ns1' })
-    const drive2 = create({ corestore: store, namespace: 'ns2' })
+    const drive1 = create({ dwebx: store, namespace: 'ns1' })
+    const drive2 = create({ dwebx: store, namespace: 'ns2' })
 
     drive2.ready(err => {
       t.error(err, 'no error')
@@ -693,7 +693,7 @@ test('can mount hypercores', async t => {
   store.ready(onready)
 
   function onready () {
-    const drive = create({ corestore: store })
+    const drive = create({ dwebx: store })
     var core = store.get()
 
     drive.ready(err => {
@@ -709,7 +709,7 @@ test('can mount hypercores', async t => {
   }
 
   function onappend (drive, core) {
-    drive.mount('/a', core.key, { hypercore: true }, err => {
+    drive.mount('/a', core.key, { ddatabase: true }, err => {
       t.error(err, 'no error')
       drive.readFile('/a', (err, contents) => {
         t.error(err, 'no error')
@@ -726,8 +726,8 @@ test('truncate within mount (with shared write capabilities)', async t => {
 
   function onready () {
 
-    const drive1 = create({ corestore: store, namespace: 'ns1' })
-    const drive2 = create({ corestore: store, namespace: 'ns2' })
+    const drive1 = create({ dwebx: store, namespace: 'ns1' })
+    const drive2 = create({ dwebx: store, namespace: 'ns2' })
 
     drive2.ready(err => {
       t.error(err, 'no error')
@@ -767,14 +767,14 @@ test('mount replication between hyperdrives', async t => {
     })
   })
 
-  const drive1 = create({ corestore: store1 })
-  const drive2 = create({ corestore: store2 })
+  const drive1 = create({ dwebx: store1 })
+  const drive2 = create({ dwebx: store2 })
   var drive3 = null
 
   await new Promise(resolve => {
     drive1.ready(err => {
       t.error(err, 'no error')
-      drive3 = create(drive1.key, { corestore: store3 })
+      drive3 = create(drive1.key, { dwebx: store3 })
       drive2.ready(err => {
         t.error(err, 'no error')
         drive3.ready(err => {
@@ -829,14 +829,14 @@ test('mount replication between hyperdrives, multiple, nested mounts', async t =
 
   function createMountee () {
     const store = new Corestore(path => ram('cs1/' + path))
-    const drive1 = create({ corestore: store, namespace: 'ns1' })
+    const drive1 = create({ dwebx: store, namespace: 'ns1' })
     var drive2, drive3
 
     return new Promise(resolve => {
       drive1.ready(err => {
         t.error(err, 'no error')
-        drive2 = create({ corestore: store, namespace: 'ns2' })
-        drive3 = create({ corestore: store, namespace: 'ns3' })
+        drive2 = create({ dwebx: store, namespace: 'ns2' })
+        drive3 = create({ dwebx: store, namespace: 'ns3' })
         drive2.ready(err => {
           t.error(err, 'no error')
           drive3.ready(err => {
@@ -873,7 +873,7 @@ test('mount replication between hyperdrives, multiple, nested mounts', async t =
 
     return new Promise(resolve => {
       store.ready(() => {
-        const drive1 = create({ corestore: store  })
+        const drive1 = create({ dwebx: store  })
         drive1.ready(err => {
           t.error(err, 'no error')
           r.replicate(drive1, d1)
@@ -1216,8 +1216,8 @@ test('readdir with noMounts will not traverse mounts', async t => {
 })
 
 test('update does not clear the mount', function (t) {
-  const drive = hyperdrive(ram)
-  const other = hyperdrive(drive.corestore, null, { namespace: 'test' })
+  const drive = dwebfs(ram)
+  const other = dwebfs(drive.dwebx, null, { namespace: 'test' })
 
   other.writeFile('/foo', 'bar', function (err) {
     t.error(err, 'no error')

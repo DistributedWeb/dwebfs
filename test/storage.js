@@ -2,7 +2,7 @@ const tape = require('tape')
 const tmp = require('temporary-directory')
 const create = require('./helpers/create')
 const Replicator = require('./helpers/replicator')
-const hyperdrive = require('..')
+const dwebfs = require('..')
 
 tape('ram storage', function (t) {
   var drive = create()
@@ -17,7 +17,7 @@ tape('ram storage', function (t) {
 tape('dir storage with resume', function (t) {
   tmp(function (err, dir, cleanup) {
     t.ifError(err)
-    var drive = hyperdrive(dir)
+    var drive = dwebfs(dir)
     drive.ready(function () {
       t.ok(drive.metadata.writable, 'drive metadata is writable')
       t.ok(drive.contentWritable, 'drive content is writable')
@@ -25,7 +25,7 @@ tape('dir storage with resume', function (t) {
       drive.close(function (err) {
         t.ifError(err)
 
-        var drive2 = hyperdrive(dir)
+        var drive2 = dwebfs(dir)
         drive2.ready(function (err) {
           t.error(err, 'no error')
           t.ok(drive2.metadata.writable, 'drive2 metadata is writable')
@@ -49,7 +49,7 @@ tape('dir storage for non-writable drive', function (t) {
     tmp(function (err, dir, cleanup) {
       t.ifError(err)
 
-      var clone = hyperdrive(dir, src.key)
+      var clone = dwebfs(dir, src.key)
       clone.ready(function () {
         t.ok(!clone.metadata.writable, 'clone metadata not writable')
         t.ok(!clone.contentWritable, 'clone content not writable')
@@ -68,7 +68,7 @@ tape('dir storage for non-writable drive', function (t) {
 tape('dir storage without permissions emits error', function (t) {
   // TODO: This error should not be emitted twice -- fix error propagation.
   t.plan(1)
-  var drive = hyperdrive('/')
+  var drive = dwebfs('/')
   drive.on('error', function (err) {
     t.ok(err, 'got error')
   })
@@ -80,7 +80,7 @@ tape('write and read (sparse)', function (t) {
 
   tmp(function (err, dir, cleanup) {
     t.ifError(err)
-    var drive = hyperdrive(dir)
+    var drive = dwebfs(dir)
     drive.on('ready', function () {
       var clone = create(drive.key, { sparse: true })
       clone.on('ready', function () {
@@ -146,12 +146,12 @@ tape('sparse read/write two files', function (t) {
 tape('destroying the drive destroys its data', function (t) {
   tmp(function (err, dir, cleanup) {
     t.ifError(err)
-    const initial = hyperdrive(dir)
+    const initial = dwebfs(dir)
     initial.writeFile('/example.txt', 'Hello World!', function (err) {
       t.ifError(err)
       initial.destroyStorage(function (err) {
         t.ifError(err)
-        const copy = hyperdrive(dir)
+        const copy = dwebfs(dir)
 
         copy.readdir('/', function (err, files) {
           t.ifError(err)
